@@ -1,68 +1,61 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Edit, Trash2, X } from "lucide-react"
+import { Plus, Edit, Trash2, X, Loader2 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Flight {
   id: string
   aircraft: string
-  route: string
+  routeId: number // Changed from string 'route' to ID
+  routeLabel: string // For display purposes
   status: "On Time" | "Delayed" | "Cancelled"
   passengers: number
   revenue: string
 }
 
-const initialFlights: Flight[] = [
-  {
-    id: "FL001",
-    aircraft: "Boeing 737",
-    route: "NYC → LAX",
-    status: "On Time",
-    passengers: 182,
-    revenue: "$8,920",
-  },
-  {
-    id: "FL002",
-    aircraft: "Airbus A320",
-    route: "LAX → MIA",
-    status: "Delayed",
-    passengers: 165,
-    revenue: "$7,850",
-  },
-  {
-    id: "FL003",
-    aircraft: "Boeing 737",
-    route: "ORD → BOS",
-    status: "On Time",
-    passengers: 178,
-    revenue: "$8,680",
-  },
-  {
-    id: "FL004",
-    aircraft: "Embraer E190",
-    route: "DEN → SFO",
-    status: "On Time",
-    passengers: 145,
-    revenue: "$6,240",
-  },
-]
+interface RouteOption {
+  id: number
+  label: string
+}
 
 export default function FlightsPage() {
-  const [flights, setFlights] = useState<Flight[]>(initialFlights)
+  const [flights, setFlights] = useState<Flight[]>([])
+  const [routes, setRoutes] = useState<RouteOption[]>([])
+  const [loading, setLoading] = useState(true)
+  
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Flight>({
-    id: "",
+  
+  // Form State
+  const [formData, setFormData] = useState<Partial<Flight>>({
     aircraft: "",
-    route: "",
+    routeId: undefined,
     status: "On Time",
     passengers: 0,
     revenue: "",
   })
+
+  // Fetch Routes on Mount
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        const res = await fetch("/api/routes")
+        if (res.ok) {
+          const data = await res.json()
+          setRoutes(data)
+        }
+      } catch (err) {
+        console.error("Failed to load routes", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchRoutes()
+  }, [])
 
   const handleEdit = (flight: Flight) => {
     setEditingId(flight.id)
@@ -75,35 +68,41 @@ export default function FlightsPage() {
   }
 
   const handleSave = () => {
+    const selectedRoute = routes.find(r => r.id === Number(formData.routeId))
+    const routeLabel = selectedRoute ? selectedRoute.label : "Unknown Route"
+
     if (editingId) {
-      setFlights(flights.map((f) => (f.id === editingId ? formData : f)))
+      setFlights(flights.map((f) => (f.id === editingId ? { ...f, ...formData, routeLabel } as Flight : f)))
     } else {
       const newId = `FL${String(flights.length + 1).padStart(3, "0")}`
-      setFlights([...flights, { ...formData, id: newId }])
+      setFlights([...flights, { ...formData, id: newId, routeLabel } as Flight])
     }
     setShowModal(false)
+    resetForm()
+  }
+
+  const handleOpenNew = () => {
     setEditingId(null)
+    resetForm()
+    setShowModal(true)
+  }
+
+  const resetForm = () => {
     setFormData({
-      id: "",
       aircraft: "",
-      route: "",
+      routeId: undefined,
       status: "On Time",
       passengers: 0,
       revenue: "",
     })
   }
 
-  const handleOpenNew = () => {
-    setEditingId(null)
-    setFormData({
-      id: "",
-      aircraft: "",
-      route: "",
-      status: "On Time",
-      passengers: 0,
-      revenue: "",
-    })
-    setShowModal(true)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -146,46 +145,54 @@ export default function FlightsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {flights.map((flight) => (
-                <TableRow key={flight.id} className="hover:bg-neutral-50 border-b border-border">
-                  <TableCell className="py-3 px-4 text-neutral-700 font-medium">{flight.id}</TableCell>
-                  <TableCell className="py-3 px-4 text-neutral-700">{flight.aircraft}</TableCell>
-                  <TableCell className="py-3 px-4 text-neutral-700">{flight.route}</TableCell>
-                  <TableCell className="py-3 px-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        flight.status === "On Time"
-                          ? "bg-green-100 text-green-700"
-                          : flight.status === "Delayed"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {flight.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="py-3 px-4 text-neutral-700">{flight.passengers}</TableCell>
-                  <TableCell className="py-3 px-4 text-neutral-700 font-medium">{flight.revenue}</TableCell>
-                  <TableCell className="py-3 px-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(flight)}
-                        className="p-2 hover:bg-blue-100 rounded-lg transition"
-                        aria-label="Edit flight"
-                      >
-                        <Edit className="w-4 h-4 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(flight.id)}
-                        className="p-2 hover:bg-red-100 rounded-lg transition"
-                        aria-label="Delete flight"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
+              {flights.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-neutral-500">
+                    No flights found. Add one to get started.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                flights.map((flight) => (
+                  <TableRow key={flight.id} className="hover:bg-neutral-50 border-b border-border">
+                    <TableCell className="py-3 px-4 text-neutral-700 font-medium">{flight.id}</TableCell>
+                    <TableCell className="py-3 px-4 text-neutral-700">{flight.aircraft}</TableCell>
+                    <TableCell className="py-3 px-4 text-neutral-700">{flight.routeLabel}</TableCell>
+                    <TableCell className="py-3 px-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          flight.status === "On Time"
+                            ? "bg-green-100 text-green-700"
+                            : flight.status === "Delayed"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {flight.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 px-4 text-neutral-700">{flight.passengers}</TableCell>
+                    <TableCell className="py-3 px-4 text-neutral-700 font-medium">{flight.revenue}</TableCell>
+                    <TableCell className="py-3 px-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(flight)}
+                          className="p-2 hover:bg-blue-100 rounded-lg transition"
+                          aria-label="Edit flight"
+                        >
+                          <Edit className="w-4 h-4 text-blue-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(flight.id)}
+                          className="p-2 hover:bg-red-100 rounded-lg transition"
+                          aria-label="Delete flight"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -217,14 +224,21 @@ export default function FlightsPage() {
                 />
               </div>
 
+              {/* Replaced Text Input with Dropdown */}
               <div>
                 <label className="text-sm font-medium text-neutral-700">Route</label>
-                <Input
-                  value={formData.route}
-                  onChange={(e) => setFormData({ ...formData, route: e.target.value })}
-                  placeholder="e.g., NYC → LAX"
-                  className="mt-1"
-                />
+                <select
+                  value={formData.routeId || ""}
+                  onChange={(e) => setFormData({ ...formData, routeId: Number(e.target.value) })}
+                  className="w-full mt-1 px-3 py-2 border border-border rounded-lg text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="" disabled>Select a route</option>
+                  {routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {route.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

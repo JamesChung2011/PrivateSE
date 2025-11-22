@@ -10,10 +10,13 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import { AlertCircle, Loader2 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface SignupData {
   name: string
   email: string
+  phone: string
   password: string
   confirmPassword: string
 }
@@ -22,10 +25,12 @@ export default function SignupPage() {
   const [formData, setFormData] = useState<SignupData>({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [apiError, setApiError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { login } = useUser()
@@ -34,6 +39,7 @@ export default function SignupPage() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     setErrors((prev) => ({ ...prev, [name]: "" }))
+    setApiError("")
   }
 
   const validateForm = (): boolean => {
@@ -50,62 +56,82 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!validateForm()) return
 
     setIsLoading(true)
+    setApiError("")
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          role: "customer", // Default role
+        }),
+      })
 
-    // Create new customer account
-    login({
-      id: Math.random().toString(),
-      email: formData.email,
-      name: formData.name,
-      role: "customer",
-      avatar: "👤",
-    })
+      const data = await response.json()
 
-    router.push("/dashboard/customer")
-    setIsLoading(false)
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed")
+      }
+
+      // Auto-login context after success
+      login({
+        id: data.user_id,
+        email: data.email,
+        name: data.full_name,
+        role: "customer",
+        avatar: data.avatar_url,
+      })
+
+      router.push("/dashboard/customer")
+    } catch (err: any) {
+      setApiError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✈</span>
+            <span className="text-3xl text-white">✈</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">FlightHub</h1>
           <p className="text-gray-500 mt-2">Create Your Account</p>
         </div>
 
-        {/* Signup Form */}
         <Card className="border border-gray-200 p-8 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {apiError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{apiError}</AlertDescription>
+              </Alert>
+            )}
+
             <div>
-              <Label htmlFor="name" className="text-gray-700 font-medium">
-                Full Name
-              </Label>
+              <Label htmlFor="name" className="text-gray-700 font-medium">Full Name</Label>
               <Input
                 id="name"
                 name="name"
-                type="text"
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="John Doe"
-                className={`mt-2 border-gray-300 ${errors.name ? "border-red-500" : ""}`}
+                className={`mt-1 ${errors.name ? "border-red-500" : ""}`}
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
 
             <div>
-              <Label htmlFor="email" className="text-gray-700 font-medium">
-                Email Address
-              </Label>
+              <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
               <Input
                 id="email"
                 name="email"
@@ -113,15 +139,27 @@ export default function SignupPage() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@example.com"
-                className={`mt-2 border-gray-300 ${errors.email ? "border-red-500" : ""}`}
+                className={`mt-1 ${errors.email ? "border-red-500" : ""}`}
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
 
+            {/* Added Phone Number Input */}
             <div>
-              <Label htmlFor="password" className="text-gray-700 font-medium">
-                Password
-              </Label>
+              <Label htmlFor="phone" className="text-gray-700 font-medium">Phone Number (Optional)</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="+1 234 567 890"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
               <Input
                 id="password"
                 name="password"
@@ -129,15 +167,13 @@ export default function SignupPage() {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className={`mt-2 border-gray-300 ${errors.password ? "border-red-500" : ""}`}
+                className={`mt-1 ${errors.password ? "border-red-500" : ""}`}
               />
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
             </div>
 
             <div>
-              <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">
-                Confirm Password
-              </Label>
+              <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -145,7 +181,7 @@ export default function SignupPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className={`mt-2 border-gray-300 ${errors.confirmPassword ? "border-red-500" : ""}`}
+                className={`mt-1 ${errors.confirmPassword ? "border-red-500" : ""}`}
               />
               {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
             </div>
@@ -155,7 +191,14 @@ export default function SignupPage() {
               disabled={isLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium mt-6"
             >
-              {isLoading ? "Creating Account..." : "Sign Up"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                "Sign Up"
+              )}
             </Button>
           </form>
 
@@ -164,7 +207,6 @@ export default function SignupPage() {
           </p>
         </Card>
 
-        {/* Login Link */}
         <p className="text-center text-gray-600 mt-6">
           Already have an account?{" "}
           <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium">

@@ -18,7 +18,7 @@ interface PendingBooking {
 export default function PaymentPage() {
   const [completedPayment, setCompletedPayment] = useState(false)
   const [selectedBooking] = useState<PendingBooking>({
-    id: "BK-2025-001",
+    id: "8a9623a7-9ce6-4373-a415-a95c4f49593c", //testing ONLY
     amount: 980,
     route: "NYC → LAX",
     date: "2025-02-15",

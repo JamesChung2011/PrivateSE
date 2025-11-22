@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Lock, Loader2 } from "lucide-react"
+import { AlertCircle, Lock, Loader2, CheckCircle2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface PaymentFormProps {
   amount: number
   bookingId: string
-  onSuccess?: () => void
+  onSuccess?: (transactionId: string) => void
   isLoading?: boolean
 }
 
@@ -40,45 +40,53 @@ export function PaymentForm({ amount, bookingId, onSuccess, isLoading = false }:
     return v
   }
 
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCardNumber(formatCardNumber(e.target.value))
-  }
-
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setExpiryDate(formatExpiryDate(e.target.value))
-  }
-
-  const handleCVVChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCvv(e.target.value.slice(0, 4))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    if (!cardNumber || cardNumber.replace(/\s/g, "").length !== 16) {
-      setError("Please enter a valid 16-digit card number")
+    // Basic Frontend Validation
+    if (cardNumber.replace(/\s/g, "").length < 15) {
+      setError("Invalid card number length")
       return
     }
-    if (!expiryDate || expiryDate.length !== 5) {
-      setError("Please enter a valid expiry date (MM/YY)")
-      return
-    }
-    if (!cvv || cvv.length !== 3) {
-      setError("Please enter a valid 3-digit CVV")
-      return
-    }
-    if (!cardholderName.trim()) {
-      setError("Please enter the cardholder name")
+    if (cvv.length < 3) {
+      setError("Invalid CVV")
       return
     }
 
     setProcessing(true)
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setProcessing(false)
 
-    onSuccess?.()
+    try {
+      const response = await fetch("/api/payments/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId,
+          amount,
+          paymentMethod: "Credit Card",
+          cardDetails: {
+            number: cardNumber, // Sent to API but NOT stored in DB
+            expiry: expiryDate,
+            cvv: cvv,
+            name: cardholderName
+          }
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Payment failed")
+      }
+
+      // Success!
+      if (onSuccess) onSuccess(data.transactionId)
+
+    } catch (err: any) {
+      setError(err.message || "Something went wrong with the payment")
+    } finally {
+      setProcessing(false)
+    }
   }
 
   return (
@@ -86,9 +94,16 @@ export function PaymentForm({ amount, bookingId, onSuccess, isLoading = false }:
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Booking Amount */}
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
-          <p className="text-sm text-neutral-600">Total Amount Due</p>
-          <p className="text-3xl font-bold text-primary">${amount.toFixed(2)}</p>
-          <p className="text-xs text-neutral-500 mt-1">Booking ID: {bookingId}</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm text-neutral-600">Total Amount Due</p>
+              <p className="text-3xl font-bold text-primary">${amount.toFixed(2)}</p>
+            </div>
+            <div className="text-right">
+               <p className="text-xs text-neutral-500">Booking ID</p>
+               <p className="font-mono font-medium text-sm">{bookingId}</p>
+            </div>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -111,6 +126,7 @@ export function PaymentForm({ amount, bookingId, onSuccess, isLoading = false }:
             placeholder="John Doe"
             className="mt-2 border-border"
             disabled={processing}
+            required
           />
         </div>
 
@@ -119,16 +135,19 @@ export function PaymentForm({ amount, bookingId, onSuccess, isLoading = false }:
           <Label htmlFor="card-number" className="text-sm font-medium text-neutral-700">
             Card Number
           </Label>
-          <Input
-            id="card-number"
-            value={cardNumber}
-            onChange={handleCardNumberChange}
-            placeholder="1234 5678 9012 3456"
-            className="mt-2 border-border font-mono"
-            disabled={processing}
-            maxLength={19}
-          />
-          <p className="text-xs text-neutral-500 mt-1">Visa, Mastercard, Amex</p>
+          <div className="relative">
+            <Input
+              id="card-number"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+              placeholder="0000 0000 0000 0000"
+              className="mt-2 border-border font-mono pl-10"
+              disabled={processing}
+              maxLength={19}
+              required
+            />
+            <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 transform -translate-y-1/2 pt-2" />
+          </div>
         </div>
 
         {/* Expiry and CVV */}
@@ -140,11 +159,12 @@ export function PaymentForm({ amount, bookingId, onSuccess, isLoading = false }:
             <Input
               id="expiry"
               value={expiryDate}
-              onChange={handleExpiryChange}
+              onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
               placeholder="MM/YY"
               className="mt-2 border-border font-mono"
               disabled={processing}
               maxLength={5}
+              required
             />
           </div>
           <div>
@@ -154,35 +174,36 @@ export function PaymentForm({ amount, bookingId, onSuccess, isLoading = false }:
             <Input
               id="cvv"
               value={cvv}
-              onChange={handleCVVChange}
+              onChange={(e) => setCvv(e.target.value.slice(0, 4))}
               placeholder="123"
               type="password"
               className="mt-2 border-border font-mono"
               disabled={processing}
               maxLength={4}
+              required
             />
           </div>
         </div>
 
         {/* Security Notice */}
         <div className="flex items-center gap-2 text-xs text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg p-3">
-          <Lock className="w-4 h-4" />
-          <span>Your payment information is encrypted and secure</span>
+          <CheckCircle2 className="w-4 h-4 text-green-600" />
+          <span>SSL Secured. Card details are never stored.</span>
         </div>
 
         {/* Submit Button */}
         <Button
           type="submit"
           disabled={processing || isLoading}
-          className="w-full bg-primary hover:bg-primary-dark text-white"
+          className="w-full bg-primary hover:bg-primary-dark text-white h-11"
         >
           {processing || isLoading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing Payment...
+              Processing Secure Payment...
             </>
           ) : (
-            `Pay $${amount.toFixed(2)}`
+            `Pay $${amount.toFixed(2)} Now`
           )}
         </Button>
       </form>

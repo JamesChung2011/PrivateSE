@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model aircraft {
+  aircraft_id     Int               @id @default(autoincrement())
+  registration    String            @unique @db.VarChar(50)
+  model           String            @db.VarChar(100)
+  total_seats     Int
+  aircraft_seat   aircraft_seat[]
+  flight_instance flight_instance[]
+}
+
+model aircraft_seat {
+  seat_id     Int       @id @default(autoincrement())
+  aircraft_id Int?
+  seat_label  String    @db.VarChar(5)
+  seat_class  String    @db.VarChar(20)
+  aircraft    aircraft? @relation(fields: [aircraft_id], references: [aircraft_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([aircraft_id, seat_label])
+}
+
+model airport {
+  airport_code                     String  @id @db.Char(3)
+  name                             String  @db.VarChar(255)
+  city                             String? @db.VarChar(100)
+  country                          String? @db.VarChar(100)
+  route_route_destinationToairport route[] @relation("route_destinationToairport")
+  route_route_originToairport      route[] @relation("route_originToairport")
+}
+
+model app_user {
+  user_id        String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email          String           @unique @db.VarChar(255)
+  password_hash  String?
+  full_name      String           @db.VarChar(255)
+  phone          String?          @db.VarChar(20)
+  avatar_url     String?
+  is_active      Boolean?         @default(true)
+  role_id        Int?
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  role           role?            @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: NoAction)
+  booking        booking[]
+  notification   notification[]
+  staff_schedule staff_schedule[]
+}
+
+model booking {
+  booking_id   String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  booking_code String      @unique @db.VarChar(10)
+  user_id      String?     @db.Uuid
+  status       String?     @default("Pending") @db.VarChar(20)
+  created_at   DateTime?   @default(now()) @db.Timestamp(6)
+  app_user     app_user?   @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  passenger    passenger[]
+  payment      payment[]
+}
+
+model expenses {
+  expense_id  Int       @id @default(autoincrement())
+  category    String    @db.VarChar(50)
+  amount      Decimal   @db.Decimal(10, 2)
+  description String?
+  recorded_at DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model fare_class {
+  fare_id       Int      @id @default(autoincrement())
+  name          String   @db.VarChar(50)
+  refund_policy String?
+  ticket        ticket[]
+}
+
+model flight {
+  flight_id       Int               @id @default(autoincrement())
+  flight_number   String            @unique @db.VarChar(10)
+  route_id        Int?
+  carrier         String?           @db.VarChar(50)
+  status          String?           @default("active") @db.VarChar(20)
+  route           route?            @relation(fields: [route_id], references: [route_id], onDelete: Cascade, onUpdate: NoAction)
+  flight_instance flight_instance[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model flight_instance {
+  instance_id    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  flight_id      Int?
+  aircraft_id    Int?
+  departure_time DateTime  @db.Timestamptz(6)
+  arrival_time   DateTime  @db.Timestamptz(6)
+  status         String?   @default("On Time") @db.VarChar(20)
+  base_price     Decimal   @db.Decimal(10, 2)
+  aircraft       aircraft? @relation(fields: [aircraft_id], references: [aircraft_id], onDelete: Cascade, onUpdate: NoAction)
+  flight         flight?   @relation(fields: [flight_id], references: [flight_id], onDelete: Cascade, onUpdate: NoAction)
+  ticket         ticket[]
+}
+
+model notification {
+  notification_id Int       @id @default(autoincrement())
+  user_id         String?   @db.Uuid
+  message         String?
+  is_read         Boolean?  @default(false)
+  sent_at         DateTime? @default(now()) @db.Timestamp(6)
+  app_user        app_user? @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model passenger {
+  passenger_id Int       @id @default(autoincrement())
+  booking_id   String?   @db.Uuid
+  full_name    String    @db.VarChar(100)
+  dob          DateTime? @db.Date
+  booking      booking?  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
+  ticket       ticket[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment {
+  payment_id      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  booking_id      String?   @db.Uuid
+  amount          Decimal   @db.Decimal(10, 2)
+  method          String?   @db.VarChar(30)
+  transaction_ref String?   @db.VarChar(100)
+  status          String?   @default("Paid") @db.VarChar(20)
+  processed_at    DateTime? @default(now()) @db.Timestamp(6)
+  booking         booking?  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
+  refund          refund[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model refund {
+  refund_id    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  payment_id   String?   @db.Uuid
+  amount       Decimal   @db.Decimal(10, 2)
+  reason       String?
+  status       String?   @default("Processed") @db.VarChar(20)
+  processed_at DateTime? @default(now()) @db.Timestamp(6)
+  payment      payment?  @relation(fields: [payment_id], references: [payment_id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model role {
+  role_id     Int        @id @default(autoincrement())
+  name        String     @unique @db.VarChar(50)
+  description String?
+  app_user    app_user[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model route {
+  route_id                           Int      @id @default(autoincrement())
+  origin                             String?  @db.Char(3)
+  destination                        String?  @db.Char(3)
+  flight                             flight[]
+  airport_route_destinationToairport airport? @relation("route_destinationToairport", fields: [destination], references: [airport_code], onDelete: NoAction, onUpdate: NoAction)
+  airport_route_originToairport      airport? @relation("route_originToairport", fields: [origin], references: [airport_code], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model staff_schedule {
+  schedule_id String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id     String?   @db.Uuid
+  shift_start DateTime  @db.Timestamptz(6)
+  shift_end   DateTime  @db.Timestamptz(6)
+  role        String?   @db.VarChar(50)
+  status      String?   @default("Scheduled") @db.VarChar(20)
+  app_user    app_user? @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ticket {
+  ticket_id       String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  passenger_id    Int?
+  instance_id     String?          @db.Uuid
+  fare_id         Int?
+  seat_label      String?          @db.VarChar(5)
+  price           Decimal?         @db.Decimal(10, 2)
+  status          String?          @default("Issued") @db.VarChar(20)
+  fare_class      fare_class?      @relation(fields: [fare_id], references: [fare_id], onDelete: NoAction, onUpdate: NoAction)
+  flight_instance flight_instance? @relation(fields: [instance_id], references: [instance_id], onDelete: Cascade, onUpdate: NoAction)
+  passenger       passenger?       @relation(fields: [passenger_id], references: [passenger_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([instance_id, seat_label])
+}

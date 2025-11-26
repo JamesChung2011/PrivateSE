@@ -118,10 +118,10 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-full bg-green-900 flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl text-white">✈</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">FlightHub</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Aircadium</h1>
           <p className="text-gray-500 mt-2">Create Your Account</p>
         </div>
 
@@ -207,7 +207,7 @@ export default function SignupPage() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium mt-6"
+              className="w-full bg-green-800 hover:bg-green-900 text-white font-medium mt-6"
             >
               {isLoading ? (
                 <>
@@ -227,7 +227,7 @@ export default function SignupPage() {
 
         <p className="text-center text-gray-600 mt-6">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link href="/auth/login" className="text-green-600 hover:text-green-900 font-medium">
             Login here
           </Link>
         </p>

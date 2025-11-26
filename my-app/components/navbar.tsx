@@ -57,7 +57,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-white font-bold text-lg">✈</span>
             </div>
-            <span className="font-semibold text-neutral-900 hidden sm:inline">FlightHub</span>
+            <span className="font-semibold text-neutral-900 hidden sm:inline">Aircadium</span>
           </div>
         </div>
 

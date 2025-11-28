@@ -4,14 +4,17 @@ import { prisma } from "@/lib/db"
 // GET /api/flights/[id] - Get single flight by ID
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const flightId = parseInt(params.id)
+    const resolvedParams = await params
+    const flightId = parseInt(resolvedParams.id)
+
+    console.log('Flight ID received:', resolvedParams.id, 'Parsed:', flightId)
 
     if (isNaN(flightId)) {
       return NextResponse.json(
-        { error: "Invalid flight ID" },
+        { error: "Invalid flight ID", received: resolvedParams.id },
         { status: 400 }
       )
     }
@@ -56,10 +59,11 @@ export async function GET(
 // PUT /api/flights/[id] - Update flight
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const flightId = parseInt(params.id)
+    const resolvedParams = await params
+    const flightId = parseInt(resolvedParams.id)
 
     if (isNaN(flightId)) {
       return NextResponse.json(
@@ -148,10 +152,11 @@ export async function PUT(
 // DELETE /api/flights/[id] - Delete flight
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const flightId = parseInt(params.id)
+    const resolvedParams = await params
+    const flightId = parseInt(resolvedParams.id)
 
     if (isNaN(flightId)) {
       return NextResponse.json(

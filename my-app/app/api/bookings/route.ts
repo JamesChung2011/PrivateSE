@@ -1,45 +1,27 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const body = await request.json()
-    const { flightId, userId, passengers } = body
-
-    if (!flightId || !userId || !passengers || !Array.isArray(passengers)) {
-      return NextResponse.json(
-        { error: "Missing required fields: flightId, userId, passengers" },
-        { status: 400 }
-      )
+    const url = new URL(request.url);
+    // For now, allow passing userId as query param in dev: ?userId=...
+    const userId = url.searchParams.get("userId");
+    if (!userId) {
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    // Mock booking creation - generate a random booking ID
-    const mockBookingId = `BK${Date.now()}${Math.random().toString(36).substring(2, 9).toUpperCase()}`
-    const mockBookingCode = `PNR${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-
-    // Simulate a small delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // Return mock booking response
-    return NextResponse.json(
-      {
-        bookingId: mockBookingId,
-        bookingCode: mockBookingCode,
-        status: "Pending",
-        message: "Booking created successfully",
+    const bookings = await prisma.booking.findMany({
+      where: { userId },
+      include: {
+        flight: true,
+        refunds: true,
       },
-      { status: 201 }
-    )
-  } catch (error: any) {
-    console.error("Booking creation error:", error)
-    return NextResponse.json(
-      { error: "Failed to create booking" },
-      { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    )
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(bookings);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Failed to load bookings" }, { status: 500 });
   }
 }
-

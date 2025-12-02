@@ -48,25 +48,17 @@ export default function OperationsPage() {
 
   // Status options for dropdown
   const statusOptions = [
-    "On Time",
     "Delayed", 
     "Boarding",
-    "Departed",
-    "Landed",
-    "Cancelled",
-    "Preparing"
+    "Landed"
   ]
 
   // Get status badge color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "On Time": return "bg-green-100 text-green-800"
       case "Delayed": return "bg-red-100 text-red-800"
       case "Boarding": return "bg-blue-100 text-blue-800"
-      case "Departed": return "bg-purple-100 text-purple-800"
-      case "Landed": return "bg-gray-100 text-gray-800"
-      case "Cancelled": return "bg-red-200 text-red-900"
-      case "Preparing": return "bg-yellow-100 text-yellow-800"
+      case "Landed": return "bg-green-100 text-green-800"
       default: return "bg-gray-100 text-gray-800"
     }
   }
@@ -133,8 +125,9 @@ export default function OperationsPage() {
   // Calculate stats
   const stats = {
     total: flightInstances.length,
-    onTime: flightInstances.filter(f => f.status === "On Time").length,
-    delayed: flightInstances.filter(f => f.status === "Delayed").length
+    boarding: flightInstances.filter(f => f.status === "Boarding").length,
+    delayed: flightInstances.filter(f => f.status === "Delayed").length,
+    landed: flightInstances.filter(f => f.status === "Landed").length
   }
 
   useEffect(() => {
@@ -149,7 +142,7 @@ export default function OperationsPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4 border border-border">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -163,12 +156,23 @@ export default function OperationsPage() {
         </Card>
         <Card className="p-4 border border-border">
           <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Clock className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500">Boarding</p>
+              <p className="text-2xl font-bold text-neutral-900">{stats.boarding}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border border-border">
+          <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-neutral-500">On Time</p>
-              <p className="text-2xl font-bold text-neutral-900">{stats.onTime}</p>
+              <p className="text-sm text-neutral-500">Landed</p>
+              <p className="text-2xl font-bold text-neutral-900">{stats.landed}</p>
             </div>
           </div>
         </Card>

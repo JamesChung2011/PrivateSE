@@ -57,13 +57,9 @@ export async function PATCH(
 
     // Validate status if provided
     const validStatuses = [
-      "On Time", 
       "Delayed", 
       "Boarding", 
-      "Departed", 
-      "Landed", 
-      "Cancelled",
-      "Preparing"
+      "Landed"
     ]
     
     if (status && !validStatuses.includes(status)) {

@@ -78,8 +78,8 @@ export default function OperationsPage() {
       setLoading(true)
       setError(null)
       
-      // Get all flight instances (remove date filter to show existing data)
-      const response = await fetch(`/api/flights/instances`)
+      const today = new Date().toISOString().split('T')[0]
+      const response = await fetch(`/api/flights/instances?date=${today}`)
       
       if (!response.ok) {
         throw new Error('Failed to fetch flight instances')

@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface NavbarProps {
   onMenuClick?: () => void
@@ -75,8 +76,13 @@ export function Navbar({ onMenuClick }: NavbarProps) {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-semibold hover:bg-primary-dark transition-colors">
-                    {user.name.charAt(0)}
+                  <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarImage src={user.avatar || ""} alt={user.name} />
+                      <AvatarFallback className="bg-primary text-white font-semibold">
+                        {user.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -92,11 +98,11 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                     <span>Session: {getSessionDuration()}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push(`/dashboard/${user.role}/settings`)}>
+                  <DropdownMenuItem onClick={() => router.push(`/dashboard/settings`)}>
                     <Settings className="w-4 h-4 mr-2" />
                     <span>Settings</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50">
                     <LogOut className="w-4 h-4 mr-2" />
                     <span>Logout</span>
                   </DropdownMenuItem>

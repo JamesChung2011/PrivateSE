@@ -1,11 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
-}
+  provider = "prisma-client-js" // CHANGED FROM "prisma-client"
 
+}
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model aircraft {

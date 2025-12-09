@@ -49,7 +49,7 @@ export default function LoginPage() {
     const user = mockUsers[credentials.email]
     if (user && user.password === credentials.password) {
       login({
-        id: Math.random().toString(),
+        id: "fe1c527f-f3b7-44e6-8a19-c46f6e0e444a",
         email: credentials.email,
         name: user.name,
         role: user.role,

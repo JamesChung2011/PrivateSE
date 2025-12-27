@@ -4,25 +4,16 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useUser } from "@/lib/user-context"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
 
 interface LoginCredentials {
   email: string
   password: string
-}
-
-// Mock database of users with role-based authentication
-const mockUsers: Record<string, { password: string; role: "owner" | "staff" | "admin" | "customer"; name: string }> = {
-  "john@flightmgmt.com": { password: "owner123", role: "owner", name: "John Doe" },
-  "jane@flightmgmt.com": { password: "staff123", role: "staff", name: "Jane Smith" },
-  "admin@flightmgmt.com": { password: "admin123", role: "admin", name: "Admin User" },
-  "mike@customer.com": { password: "customer123", role: "customer", name: "Mike Johnson" },
-  "sarah@customer.com": { password: "customer123", role: "customer", name: "Sarah Williams" },
 }
 
 export default function LoginPage() {
@@ -43,34 +34,36 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    const user = mockUsers[credentials.email]
-    if (user && user.password === credentials.password) {
-      login({
-        id: "fe1c527f-f3b7-44e6-8a19-c46f6e0e444a",
-        email: credentials.email,
-        name: user.name,
-        role: user.role,
-        avatar: "👤",
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
       })
-      router.push(`/dashboard/${user.role}`)
-    } else {
-      setError("Invalid email or password. Try: john@flightmgmt.com / owner123")
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Invalid credentials")
+      }
+
+      login({
+        id: data.user_id,
+        email: data.email,
+        name: data.full_name,
+        role: data.role,
+        avatar: data.avatar_url,
+      })
+      router.push(`/dashboard/${data.role}`)
+    } catch (err: any) {
+      setError(err.message || "Login failed")
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
-  }
-
-  const handleDemoLogin = (email: string) => {
-    setCredentials({ email, password: mockUsers[email].password })
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-green-400 flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">✈</span>
@@ -78,7 +71,6 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-neutral-900">Aircadium</h1>
         </div>
 
-        {/* Login Form */}
         <Card className="border border-gray-200 p-8 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -125,39 +117,8 @@ export default function LoginPage() {
               {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-600 font-medium mb-3">DEMO ACCOUNTS:</p>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleDemoLogin("john@flightmgmt.com")}
-                className="w-full text-left px-3 py-2 text-sm bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 text-blue-700 transition"
-              >
-                Owner: john@flightmgmt.com
-              </button>
-              <button
-                onClick={() => handleDemoLogin("jane@flightmgmt.com")}
-                className="w-full text-left px-3 py-2 text-sm bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 text-purple-700 transition"
-              >
-                Staff: jane@flightmgmt.com
-              </button>
-              <button
-                onClick={() => handleDemoLogin("admin@flightmgmt.com")}
-                className="w-full text-left px-3 py-2 text-sm bg-gray-900 hover:bg-gray-800 rounded border border-gray-700 text-white transition"
-              >
-                Admin: admin@flightmgmt.com
-              </button>
-              <button
-                onClick={() => handleDemoLogin("mike@customer.com")}
-                className="w-full text-left px-3 py-2 text-sm bg-green-50 hover:bg-green-100 rounded border border-green-200 text-green-700 transition"
-              >
-                Customer: mike@customer.com
-              </button>
-            </div>
-          </div>
         </Card>
 
-        {/* Signup Link */}
         <p className="text-center text-gray-600 mt-6">
           New customer?{" "}
           <Link href="/auth/signup" className="text-green-600 hover:text-green-900 font-medium">

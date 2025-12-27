@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { ArrowLeft, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PaymentForm } from "@/components/payment-form"
-import { ArrowLeft, CheckCircle2 } from "lucide-react"
-import Link from "next/link"
+import { useUser } from "@/lib/user-context"
 
 interface PendingBooking {
   id: string
@@ -16,22 +18,35 @@ interface PendingBooking {
 }
 
 export default function PaymentPage() {
+  const { user } = useUser()
+  const router = useRouter()
+  const params = useSearchParams()
+  const pending = useMemo<PendingBooking>(() => {
+    const bookingId = params.get("bookingId") || "UNKNOWN"
+    const amount = Number(params.get("amount") || "0")
+    return {
+      id: bookingId,
+      amount: Number.isFinite(amount) && amount > 0 ? amount : 0,
+      route: params.get("route") || "Route not specified",
+      date: params.get("date") || "",
+      passengers: Number(params.get("pax") || "1"),
+    }
+  }, [params])
+
   const [completedPayment, setCompletedPayment] = useState(false)
-  const [selectedBooking] = useState<PendingBooking>({
-    id: "BK-2025-001",
-    amount: 980,
-    route: "NYC → LAX",
-    date: "2025-02-15",
-    passengers: 2,
-  })
+  const [selectedBooking] = useState<PendingBooking>(pending)
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/auth/login")
+    } else if (!pending.id || pending.amount <= 0) {
+      router.push("/dashboard/customer/bookings")
+    }
+  }, [user, router, pending])
 
   const handlePaymentSuccess = (transactionId: string) => {
     setCompletedPayment(true)
-    // In a real app, this would update the booking status with the transactionId
     console.log("Payment successful, transaction ID:", transactionId)
-    setTimeout(() => {
-      // Could redirect or show a success screen
-    }, 1000)
   }
 
   if (completedPayment) {
@@ -128,7 +143,7 @@ export default function PaymentPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-600">Date</span>
-                <span className="font-medium text-neutral-900">{selectedBooking.date}</span>
+                <span className="font-medium text-neutral-900">{selectedBooking.date || "TBD"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-600">Passengers</span>
@@ -143,7 +158,7 @@ export default function PaymentPage() {
 
           {/* Security Info */}
           <Card className="p-4 bg-blue-50 border border-blue-200">
-            <p className="text-xs font-medium text-blue-900 mb-2">🔒 Secure Payment</p>
+            <p className="text-xs font-medium text-blue-900 mb-2">Secure Payment</p>
             <p className="text-xs text-blue-800">Your payment is encrypted with industry-standard SSL technology</p>
           </Card>
 

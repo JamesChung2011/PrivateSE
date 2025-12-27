@@ -34,7 +34,6 @@ const roleNavigation = {
     { label: "Dashboard", href: "/dashboard/customer", icon: BarChart3 },
     { label: "Book Flight", href: "/dashboard/customer/book", icon: Ticket },
     { label: "My Bookings", href: "/dashboard/customer/bookings", icon: Plane },
-    { label: "Payment", href: "/dashboard/customer/payment", icon: DollarSign },
     { label: "Support", href: "/dashboard/customer/support", icon: Ticket },
   ],
 }
@@ -47,6 +46,16 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   if (!user) return null
 
   const navigation = roleNavigation[user.role] || []
+
+  // pick the most specific match so only one item is highlighted
+  const activeItem = navigation.reduce<{ href: string } | null>((best, item) => {
+    const exact = pathname === item.href
+    const nested = pathname.startsWith(item.href + "/")
+    if (exact || nested) {
+      if (!best || item.href.length > best.href.length) return { href: item.href }
+    }
+    return best
+  }, null)
 
   return (
     <>
@@ -69,7 +78,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <nav className="flex flex-col p-4 gap-2">
           {navigation.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = activeItem?.href === item.href
             return (
               <button
                 key={item.href}

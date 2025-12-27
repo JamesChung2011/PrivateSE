@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { StatCard } from "@/components/stat-card"
+import ExpenseForm from "@/components/expense-form"
 import {
   BarChart,
   Bar,
@@ -17,6 +18,20 @@ import {
 } from "recharts"
 import { DollarSign, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { saveAs } from "file-saver"
+
+type ExpenseInput = {
+  category: string
+  amount: number
+  description?: string
+}
+
+type Expense = ExpenseInput & {
+  expense_id: number
+  recorded_at: string
+}
+
+
 
 const monthlyData = [
   { month: "Jan", revenue: 45000, costs: 32000 },
@@ -46,7 +61,40 @@ const yearlyData = [
 type TimeFrame = "weekly" | "monthly" | "yearly"
 
 export default function RevenuePage() {
+  // State quản lý timeFrame và expenses
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly")
+  const [expenses, setExpenses] = useState<Expense[]>([])
+  const [showForm, setShowForm] = useState(false) // state để show/hide form
+
+  // Hàm thêm expense từ ExpenseForm
+  const handleAddExpense = async (expense: ExpenseInput) => {
+    try {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(expense),
+      })
+
+      const data = await res.json() // ✅ chỉ đọc 1 lần
+
+      console.log("API status:", res.status)
+      console.log("API response:", data)
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to add expense")
+      }
+
+      setExpenses((prev) => [...prev, data])
+    } catch (error) {
+      console.error(error)
+      alert("Failed to add expense")
+    }
+  }
+
+
+
+  const toggleForm = () => setShowForm(!showForm)
+
 
   const getChartData = () => {
     switch (timeFrame) {
@@ -73,13 +121,68 @@ export default function RevenuePage() {
   const chartData = getChartData()
   const xAxisKey = getXAxisKey()
 
+  const chartDataWithExpenses = chartData.map((data) => {
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+    return {
+      ...data,
+      costs: (data.costs || 0) + totalExpenses,
+    }
+  })
+
+  // Tổng revenue/profit để hiển thị StatCard
+  const totalRevenue = chartDataWithExpenses.reduce((sum, d) => sum + d.revenue, 0)
+  const totalCosts = chartDataWithExpenses.reduce((sum, d) => sum + (d.costs || 0), 0)
+  const totalProfit = totalRevenue - totalCosts
+  const avgRevenuePerFlight = Math.round(totalRevenue / chartDataWithExpenses.length)
+  const profitMargin = Math.round((totalProfit / totalRevenue) * 100)
+
+  const exportCsv = () => {
+    const headers = ["Period", "Revenue", "Costs", "Profit"]
+    const rows = chartDataWithExpenses.map((d) => [
+      (d as any).month || (d as any).week || (d as any).year,
+      d.revenue,
+      d.costs,
+      d.revenue - (d.costs || 0),
+    ])
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    saveAs(blob, "revenue-summary.csv")
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900">Revenue Analytics</h1>
-        <p className="text-neutral-500 mt-1">Financial performance and insights</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-neutral-900">
+            Revenue Analytics
+          </h1>
+          <p className="text-neutral-500 mt-1">
+            Financial performance and insights
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={exportCsv}>
+            Export CSV
+          </Button>
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            Add expense
+          </Button>
+        </div>
       </div>
+
+
+      {/* Form nhập expense */}
+      {showForm && (
+      <ExpenseForm
+        onAdd={(expense) => {
+          handleAddExpense(expense)
+          setShowForm(false) // ẩn form sau submit
+        }}
+        onClose={() => setShowForm(false)}
+      />
+    )}
+
 
       {/* Time Frame Toggle */}
       <div className="flex gap-2 flex-wrap">

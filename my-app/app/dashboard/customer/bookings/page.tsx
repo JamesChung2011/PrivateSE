@@ -26,6 +26,7 @@ export default function BookingsPage() {
   const router = useRouter()
   const [bookings, setBookings] = useState<BookingData[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -44,6 +45,24 @@ export default function BookingsPage() {
       console.error(error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCancel = async (bookingId: string) => {
+    setActionLoading(bookingId)
+    try {
+      const res = await fetch("/api/bookings/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to cancel booking")
+      await fetchBookings()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -130,16 +149,26 @@ export default function BookingsPage() {
                       {booking.status}
                     </Badge>
                   </td>
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 space-x-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="border-border text-xs bg-transparent"
-                      // UPDATED: Push to /ticket?id=...
                       onClick={() => router.push(`/dashboard/customer/ticket?id=${booking.dbId}`)}
                     >
                       Details
                     </Button>
+                    {booking.status !== "Cancelled" && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="text-xs"
+                        disabled={actionLoading === booking.dbId}
+                        onClick={() => handleCancel(booking.dbId)}
+                      >
+                        {actionLoading === booking.dbId ? "Cancelling..." : "Cancel"}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

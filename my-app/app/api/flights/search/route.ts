@@ -1,78 +1,8 @@
 import { NextResponse } from "next/server"
+import { prisma } from "@/lib/db"
 
-// Mock flight data
-const mockFlights = [
-  {
-    id: "FL001",
-    airline: "FlightHub Air",
-    departure: "NYC",
-    arrival: "LAX",
-    departTime: "08:00",
-    arrivalTime: "11:30",
-    duration: "3h 30m",
-    route: "NYC → LAX",
-    price: 245,
-    stops: 0,
-    aircraft: "Boeing 737",
-    availableSeats: 12,
-  },
-  {
-    id: "FL002",
-    airline: "Sky Express",
-    departure: "NYC",
-    arrival: "LAX",
-    departTime: "10:15",
-    arrivalTime: "13:45",
-    duration: "3h 30m",
-    route: "NYC → LAX",
-    price: 199,
-    stops: 0,
-    aircraft: "Airbus A320",
-    availableSeats: 8,
-  },
-  {
-    id: "FL003",
-    airline: "Air Global",
-    departure: "NYC",
-    arrival: "LAX",
-    departTime: "14:00",
-    arrivalTime: "17:30",
-    duration: "3h 30m",
-    route: "NYC → LAX",
-    price: 189,
-    stops: 0,
-    aircraft: "Boeing 787",
-    availableSeats: 5,
-  },
-  {
-    id: "FL004",
-    airline: "Eagle Airways",
-    departure: "NYC",
-    arrival: "LAX",
-    departTime: "16:30",
-    arrivalTime: "20:00",
-    duration: "3h 30m",
-    route: "NYC → LAX",
-    price: 229,
-    stops: 1,
-    aircraft: "Airbus A321",
-    availableSeats: 15,
-  },
-  {
-    id: "FL005",
-    airline: "FlightHub Air",
-    departure: "NYC",
-    arrival: "LAX",
-    departTime: "19:00",
-    arrivalTime: "22:30",
-    duration: "3h 30m",
-    route: "NYC → LAX",
-    price: 179,
-    stops: 0,
-    aircraft: "Boeing 737",
-    availableSeats: 20,
-  },
-]
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   try {
@@ -88,12 +18,72 @@ export async function GET(request: Request) {
       )
     }
 
-    // Filter mock flights based on origin and destination
-    const filteredFlights = mockFlights.filter(
-      (flight) => flight.departure === from && flight.arrival === to
-    )
+    // Parse the search date
+    const searchDate = new Date(date)
+    const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0))
+    const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999))
 
-    return NextResponse.json(filteredFlights)
+    // Query real flight instances from database
+    const flightInstances = await prisma.flight_instance.findMany({
+      where: {
+        departure_time: {
+          gte: startOfDay,
+          lte: endOfDay
+        },
+        status: "On Time",
+        flight: {
+          status: "active",
+          route: {
+            origin: from,
+            destination: to
+          }
+        }
+      },
+      include: {
+        flight: {
+          include: {
+            route: {
+              include: {
+                airport_route_originToairport: true,
+                airport_route_destinationToairport: true
+              }
+            }
+          }
+        },
+        aircraft: true,
+        ticket: true
+      }
+    })
+
+    // Transform to frontend format
+    const flights = flightInstances.map(instance => {
+      const departTime = new Date(instance.departure_time)
+      const arrivalTime = new Date(instance.arrival_time)
+      const durationMs = arrivalTime.getTime() - departTime.getTime()
+      const hours = Math.floor(durationMs / (1000 * 60 * 60))
+      const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+
+      const bookedSeats = instance.ticket.length
+      const totalSeats = instance.aircraft?.total_seats || 0
+      const availableSeats = totalSeats - bookedSeats
+
+      return {
+        id: instance.instance_id, // This is the UUID we need
+        airline: instance.flight?.carrier || "Unknown",
+        departure: instance.flight?.route?.origin || from,
+        arrival: instance.flight?.route?.destination || to,
+        departTime: departTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        arrivalTime: arrivalTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        duration: `${hours}h ${minutes}m`,
+        route: `${instance.flight?.route?.airport_route_originToairport?.city || from} → ${instance.flight?.route?.airport_route_destinationToairport?.city || to}`,
+        price: Number(instance.base_price),
+        stops: 0, // Direct flights for now
+        aircraft: instance.aircraft?.model || "Unknown",
+        availableSeats: availableSeats
+      }
+    })
+
+    return NextResponse.json(flights)
   } catch (error: any) {
     console.error("Flight search error:", error)
     return NextResponse.json(

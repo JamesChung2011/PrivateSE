@@ -1,36 +1,22 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { StatCard } from "@/components/stat-card"
 import { Card } from "@/components/ui/card"
 import { DataTable } from "@/components/data-table"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import { Plane, Calendar, MapPin } from "lucide-react"
+import { Plus, Plane, Calendar, MapPin, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useUser } from "@/lib/user-context"
 
-const bookingsData = [
-  {
-    bookingId: "BK001",
-    route: "NYC → LAX",
-    date: "2025-02-15",
-    passengers: 2,
-    status: "Confirmed",
-  },
-  {
-    bookingId: "BK002",
-    route: "LAX → MIA",
-    date: "2025-03-01",
-    passengers: 1,
-    status: "Confirmed",
-  },
-  {
-    bookingId: "BK003",
-    route: "ORD → BOS",
-    date: "2025-03-10",
-    passengers: 3,
-    status: "Pending",
-  },
-]
+interface BookingData {
+  bookingId: string
+  dbId: string
+  route: string
+  date: string
+  passengers: number
+  status: string
+}
 
 const columns = [
   { key: "bookingId", label: "Booking ID" },
@@ -41,6 +27,37 @@ const columns = [
 ]
 
 export default function CustomerDashboard() {
+  const { user } = useUser()
+  const [bookings, setBookings] = useState<BookingData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchBookings()
+    }
+  }, [user?.id])
+
+  const fetchBookings = async () => {
+    try {
+      const res = await fetch(`/api/bookings/list?userId=${user?.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setBookings(data)
+      }
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const stats = useMemo(() => {
+    const total = bookings.length
+    const active = bookings.filter((b) => b.status !== "Cancelled").length
+    const miles = total * 1000
+    return { total, active, miles }
+  }, [bookings])
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -58,15 +75,26 @@ export default function CustomerDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total Bookings" value="12" icon={Plane} description="All time" />
-        <StatCard title="Upcoming Flights" value="3" icon={Calendar} description="Next 3 months" />
-        <StatCard title="Miles Earned" value="24,580" icon={MapPin} trend={{ value: 15, isPositive: true }} />
+        <StatCard title="Total Bookings" value={String(stats.total)} icon={Plane} description="All time" />
+        <StatCard title="Active Trips" value={String(stats.active)} icon={Calendar} description="Upcoming/active" />
+        <StatCard title="Miles Earned" value={stats.miles.toLocaleString()} icon={MapPin} trend={{ value: 5, isPositive: true }} />
       </div>
 
       {/* Bookings */}
       <Card className="p-6 border border-border">
-        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Your Bookings</h2>
-        <DataTable columns={columns} data={bookingsData} />
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-neutral-900">Your Bookings</h2>
+          <Link href="/dashboard/customer/bookings">
+            <Button variant="outline" size="sm">View all</Button>
+          </Link>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <DataTable columns={columns} data={bookings.slice(0, 5)} />
+        )}
       </Card>
 
       {/* Special Offers */}

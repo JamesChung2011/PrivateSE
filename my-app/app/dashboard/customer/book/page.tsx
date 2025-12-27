@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@/lib/user-context"
 import { FlightSearchForm, type FlightSearchParams } from "@/components/flight-search-form"
-import { FlightFilters } from "@/components/flight-filters"
+import { FlightFilters, type FlightFiltersState } from "@/components/flight-filters"
 import { FlightCard, type Flight } from "@/components/flight-card"
 import { PassengerDetailsForm, type PassengerInfo } from "@/components/passenger-details-form"
+import { SeatMap, type Seat } from "@/components/ui/seat-map"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -17,17 +18,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react"
+import { ArrowLeft, Loader2, AlertCircle, Info } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function BookFlightPage() {
-  // Wizard State: search -> select -> passengers -> confirm
-  const [step, setStep] = useState<"search" | "select" | "passengers" | "confirm">("search")
+  // Wizard State: search -> select -> passengers -> seats -> confirm
+  const [step, setStep] = useState<"search" | "select" | "passengers" | "seats" | "confirm">("search")
   
   // Data State
   const [searchParams, setSearchParams] = useState<FlightSearchParams | null>(null)
   const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null)
   const [passengerInfo, setPassengerInfo] = useState<PassengerInfo[]>([])
+  const [selectedSeats, setSelectedSeats] = useState<Seat[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
   
   // UI State
@@ -37,7 +39,13 @@ export default function BookFlightPage() {
   const { user } = useUser()
   const router = useRouter()
 
-  // 1. Handle Search (Fetch from API)
+  useEffect(() => {
+    if (!user) {
+      router.push("/auth/login")
+    }
+  }, [user, router])
+
+  // 1. Handle Search
   const handleSearch = async (params: FlightSearchParams) => {
     setIsLoading(true)
     setError("")
@@ -47,7 +55,7 @@ export default function BookFlightPage() {
       const query = new URLSearchParams({
         from: params.from,
         to: params.to,
-        date: params.departDate,
+        date: params.departDate.toISOString(),
         passengers: params.passengers.toString()
       })
 
@@ -58,7 +66,8 @@ export default function BookFlightPage() {
       }
 
       const data = await response.json()
-      setFlights(data)
+      const sorted = [...data].sort((a: Flight, b: Flight) => a.price - b.price)
+      setFlights(sorted)
       setStep("select")
 
     } catch (err) {
@@ -69,33 +78,63 @@ export default function BookFlightPage() {
     }
   }
 
-  // 2. Handle Flight Selection
+  // 2. Handle Filter/Sort Change
+  const handleFilterChange = (filters: FlightFiltersState) => {
+     // In a real app, this would filter 'flights' state or refetch API
+     // For now, we'll just log it or do basic client-side sort
+     let sorted = [...flights]
+     if (filters.sortBy === "price_asc") sorted.sort((a, b) => a.price - b.price)
+     if (filters.sortBy === "price_desc") sorted.sort((a, b) => b.price - a.price)
+     // Add more sort logic as needed
+     setFlights(sorted)
+  }
+
+  // 3. Handle Flight Selection
   const handleSelectFlight = (flight: Flight) => {
     setSelectedFlight(flight)
-    setStep("passengers") // Proceed to passenger details
+    setStep("passengers") 
   }
 
-  // 3. Handle Passenger Info Submit
+  // 4. Handle Passenger Info
   const handlePassengerSubmit = (info: PassengerInfo[]) => {
     setPassengerInfo(info)
-    setStep("confirm")
+    setStep("seats") // Move to seat selection
+  }
+  
+  // 5. Handle Seat Selection
+  const handleSeatsConfirmed = (seats: Seat[]) => {
+     setSelectedSeats(seats)
+     setStep("confirm")
   }
 
-  // 4. Create Booking (API Call)
+  // 6. Confirm & Pay
   const handleConfirmBooking = async () => {
     if (!selectedFlight || !searchParams || !user) {
       alert("Please sign in to complete your booking")
       return
     }
+    if (selectedSeats.length !== searchParams.passengers) {
+      alert("Please select seats for all passengers")
+      return
+    }
+    
+    // Calculate total including seats
+    const seatTotal = selectedSeats.reduce((acc, s) => acc + s.price, 0)
+    const flightTotal = selectedFlight.price * searchParams.passengers
+    const taxes = flightTotal * 0.1
+    const fees = 20
+    const finalTotal = flightTotal + seatTotal + taxes + fees
 
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          flightId: selectedFlight.id, // UUID from database
+          flightId: selectedFlight.id,
           userId: user.id,
-          passengers: passengerInfo
+          passengers: passengerInfo,
+          seats: selectedSeats.map(s => s.id),
+          totalAmount: finalTotal
         })
       })
 
@@ -105,13 +144,34 @@ export default function BookFlightPage() {
         throw new Error(data.error || "Booking failed")
       }
 
-      // Redirect to Payment with real Booking ID
-      router.push(`/dashboard/customer/payment?bookingId=${data.bookingId}`)
+      const params = new URLSearchParams({
+        bookingId: data.bookingId,
+        amount: finalTotal.toString(),
+        route: selectedFlight.route,
+        date: searchParams.departDate.toISOString(),
+        pax: searchParams.passengers.toString(),
+      })
+      router.push(`/dashboard/customer/payment?${params.toString()}`)
 
     } catch (err: any) {
       alert(`Error: ${err.message}`)
     }
   }
+  
+  // Calculation Helpers for Confirmation
+  const calculateCosts = () => {
+     if (!selectedFlight || !searchParams) return { flightTotal: 0, seatTotal: 0, taxes: 0, fees: 0, grandTotal: 0 }
+     
+     const flightTotal = selectedFlight.price * searchParams.passengers
+     const seatTotal = selectedSeats.reduce((acc, s) => acc + s.price, 0)
+     const taxes = flightTotal * 0.10 // 10% tax
+     const fees = 25 // Flat fee
+     const grandTotal = flightTotal + seatTotal + taxes + fees
+     
+     return { flightTotal, seatTotal, taxes, fees, grandTotal }
+  }
+  
+  const costs = calculateCosts()
 
   return (
     <div className="space-y-8">
@@ -164,6 +224,7 @@ export default function BookFlightPage() {
                   month: "short",
                   day: "numeric",
                 })}
+                {searchParams.tripType === "round-trip" && " (Round Trip)"}
                 {" • "}{searchParams.passengers} Passenger{searchParams.passengers > 1 ? "s" : ""}
               </p>
             </div>
@@ -171,7 +232,7 @@ export default function BookFlightPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-1">
-              <FlightFilters onFilterChange={() => {}} />
+              <FlightFilters onFilterChange={handleFilterChange} />
             </div>
             <div className="lg:col-span-3 space-y-4">
               {flights.length === 0 ? (
@@ -201,19 +262,32 @@ export default function BookFlightPage() {
         />
       )}
 
-      {/* Step 4: Confirmation Dialog */}
-      <Dialog open={step === "confirm"} onOpenChange={(open) => !open && setStep("passengers")}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      {/* Step 4: Seat Selection */}
+      {step === "seats" && searchParams && selectedFlight && (
+         <SeatMap 
+            passengers={searchParams.passengers} 
+            instanceId={selectedFlight.id}
+            onSeatsSelected={handleSeatsConfirmed}
+            onBack={() => setStep("passengers")}
+         />
+      )}
+
+      {/* Step 5: Confirmation Dialog */}
+      <Dialog open={step === "confirm"} onOpenChange={(open) => !open && setStep("seats")}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirm Your Booking</DialogTitle>
-            <DialogDescription>Review details before payment</DialogDescription>
+            <DialogDescription>Review full price breakdown before payment</DialogDescription>
           </DialogHeader>
 
           {selectedFlight && searchParams && (
             <div className="space-y-4">
               {/* Flight Summary */}
               <Card className="p-4 bg-neutral-50 border border-border">
-                <h3 className="font-semibold text-sm mb-3 text-primary">Flight Details</h3>
+                <div className="flex justify-between items-start mb-2">
+                   <h3 className="font-semibold text-sm text-primary">Flight Details</h3>
+                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded capitalize">{searchParams.tripType}</span>
+                </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-xs text-neutral-500">Airline</p>
@@ -223,47 +297,48 @@ export default function BookFlightPage() {
                     <p className="text-xs text-neutral-500">Route</p>
                     <p className="font-medium">{selectedFlight.route}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-neutral-500">Departure</p>
-                    <p className="font-medium">{selectedFlight.departTime} - {selectedFlight.departure}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-neutral-500">Duration</p>
-                    <p className="font-medium">{selectedFlight.duration}</p>
+                  <div className="col-span-2">
+                     <p className="text-xs text-neutral-500">Seats</p>
+                     <p className="font-medium">{selectedSeats.map(s => s.id).join(", ")}</p>
                   </div>
                 </div>
               </Card>
 
-              {/* Passenger Summary */}
-              <Card className="p-4 bg-neutral-50 border border-border">
-                <h3 className="font-semibold text-sm mb-3 text-primary">Passengers ({passengerInfo.length})</h3>
-                <div className="space-y-2">
-                  {passengerInfo.map((p, i) => (
-                    <div key={i} className="text-sm flex justify-between border-b border-neutral-200 pb-1 last:border-0 last:pb-0">
-                      <span className="font-medium">{p.fullName}</span>
-                      <span className="text-neutral-500">{p.dob}</span>
-                    </div>
-                  ))}
+              {/* Transparent Price Breakdown */}
+              <Card className="p-4 bg-white border border-border">
+                <h3 className="font-semibold text-sm mb-3">Price Breakdown</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600">Base Fare (x{searchParams.passengers})</span>
+                    <span>${costs.flightTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600">Seat Selection</span>
+                    <span>${costs.seatTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600">Taxes & Surcharges (10%)</span>
+                    <span>${costs.taxes.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600">Booking Fees</span>
+                    <span>${costs.fees.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t pt-2 mt-2 flex justify-between font-bold text-lg">
+                    <span>Total</span>
+                    <span className="text-primary">${costs.grandTotal.toFixed(2)}</span>
+                  </div>
                 </div>
-              </Card>
-
-              {/* Price Breakdown */}
-              <Card className="p-4 bg-primary/5 border border-primary/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-neutral-600">Total Price</p>
-                    <p className="text-2xl font-bold text-primary">${selectedFlight.price * searchParams.passengers}</p>
-                  </div>
-                  <div className="text-right text-sm text-neutral-600">
-                    {selectedFlight.price} x {searchParams.passengers}
-                  </div>
+                <div className="mt-3 flex gap-2 items-start text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
+                   <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                   <p>Includes all applicable taxes and fees. No hidden charges.</p>
                 </div>
               </Card>
             </div>
           )}
 
           <DialogFooter className="gap-3 sm:justify-between">
-            <Button variant="outline" onClick={() => setStep("passengers")}>
+            <Button variant="outline" onClick={() => setStep("seats")}>
               Back
             </Button>
             <Button onClick={handleConfirmBooking} className="bg-primary hover:bg-primary-dark text-white">

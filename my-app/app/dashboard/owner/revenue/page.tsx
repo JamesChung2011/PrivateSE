@@ -18,6 +18,7 @@ import {
 } from "recharts"
 import { DollarSign, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { saveAs } from "file-saver"
 
 type ExpenseInput = {
   category: string
@@ -135,6 +136,19 @@ export default function RevenuePage() {
   const avgRevenuePerFlight = Math.round(totalRevenue / chartDataWithExpenses.length)
   const profitMargin = Math.round((totalProfit / totalRevenue) * 100)
 
+  const exportCsv = () => {
+    const headers = ["Period", "Revenue", "Costs", "Profit"]
+    const rows = chartDataWithExpenses.map((d) => [
+      (d as any).month || (d as any).week || (d as any).year,
+      d.revenue,
+      d.costs,
+      d.revenue - (d.costs || 0),
+    ])
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    saveAs(blob, "revenue-summary.csv")
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -147,11 +161,15 @@ export default function RevenuePage() {
             Financial performance and insights
           </p>
         </div>
-
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          Add expense
-      </Button>
-    </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={exportCsv}>
+            Export CSV
+          </Button>
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            Add expense
+          </Button>
+        </div>
+      </div>
 
 
       {/* Form nhập expense */}

@@ -1,11 +1,11 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter, Roboto_Mono } from "next/font/google"
 import { UserProvider } from "@/lib/user-context"
 import "./globals.css"
 
-const geistSans = Geist({ subsets: ["latin"] })
-const geistMono = Geist_Mono({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] })
+const mono = Roboto_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Flight Management Dashboard",
@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.className} bg-background text-foreground`}>
+      <body className={`${inter.className} ${mono.className} bg-background text-foreground`}>
         <UserProvider>{children}</UserProvider>
       </body>
     </html>

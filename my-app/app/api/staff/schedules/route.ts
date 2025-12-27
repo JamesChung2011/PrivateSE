@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // GET /api/staff/schedules - Get staff schedules for logged in user
 export async function GET(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["staff", "owner", "admin"])
+    if (guard || !session) return guard ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId") // In real app, this would come from JWT token
+    const userId = searchParams.get("userId") || session.userId
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 401 }
-      )
-    }
 
     // Build date filter
     const dateFilter: any = {}
@@ -78,6 +76,10 @@ export async function GET(request: Request) {
 // POST /api/staff/schedules - Create new staff schedule
 export async function POST(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["staff", "owner", "admin"])
+    if (guard) return guard
+
     const body = await request.json()
     const { user_id, shift_start, shift_end, role, status } = body
 

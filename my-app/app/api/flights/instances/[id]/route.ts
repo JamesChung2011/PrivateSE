@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // GET /api/flights/instances/[id] - Get single flight instance
 export async function GET(
@@ -7,6 +8,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin", "staff"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const instanceId = resolvedParams.id
 
@@ -50,6 +55,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin", "staff"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const instanceId = resolvedParams.id
     const body = await request.json()
@@ -57,9 +66,11 @@ export async function PATCH(
 
     // Validate status if provided
     const validStatuses = [
+      "On Time",
       "Delayed", 
       "Boarding", 
-      "Landed"
+      "Landed",
+      "Cancelled",
     ]
     
     if (status && !validStatuses.includes(status)) {

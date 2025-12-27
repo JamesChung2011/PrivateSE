@@ -12,8 +12,6 @@ export interface User {
   email: string
   role: UserRole
   avatar?: string
-  loginTime?: Date
-  sessionId?: string
 }
 
 interface UserContextType {
@@ -21,42 +19,10 @@ interface UserContextType {
   setUser: (user: User | null) => void
   logout: () => void
   login: (user: User) => void
-  switchRole: (role: UserRole) => void
   isLoading: boolean
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
-
-const mockUsers: Record<UserRole, User> = {
-  owner: {
-    id: "1",
-    name: "John Doe",
-    email: "john@flightmgmt.com",
-    role: "owner",
-    avatar: "👤",
-  },
-  staff: {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@flightmgmt.com",
-    role: "staff",
-    avatar: "👤",
-  },
-  admin: {
-    id: "3",
-    name: "Admin User",
-    email: "admin@flightmgmt.com",
-    role: "admin",
-    avatar: "👤",
-  },
-  customer: {
-    id: "4",
-    name: "Mike Johnson",
-    email: "mike@customer.com",
-    role: "customer",
-    avatar: "👤",
-  },
-}
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -64,65 +30,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    const storedSession = localStorage.getItem("userSession")
-    if (storedSession) {
+    const load = async () => {
+      setIsLoading(true)
       try {
-        const session = JSON.parse(storedSession)
-        const loginTime = new Date(session.loginTime)
-        const currentTime = new Date()
-        const sessionDuration = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-
-        // Check if session has expired
-        if (currentTime.getTime() - loginTime.getTime() > sessionDuration) {
-          localStorage.removeItem("userSession")
-          setUser(null)
+        const res = await fetch("/api/user/profile", { cache: "no-store" })
+        if (res.ok) {
+          const data = await res.json()
+          setUser({
+            id: data.user_id,
+            email: data.email,
+            name: data.full_name,
+            role: data.role?.name ?? "customer",
+            avatar: data.avatar_url ?? undefined,
+          })
         } else {
-          setUser(session.user)
+          setUser(null)
         }
       } catch (error) {
-        console.error("Failed to restore session:", error)
-        localStorage.removeItem("userSession")
+        console.error("Profile load failed:", error)
         setUser(null)
+      } finally {
+        setIsLoading(false)
       }
     }
-    setIsLoading(false)
+    void load()
   }, [])
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+    } catch {
+      // ignore
+    }
     setUser(null)
-    localStorage.removeItem("userSession")
     router.push("/auth/login")
   }
 
   const login = (newUser: User) => {
-    const sessionData = {
-      user: {
-        ...newUser,
-        loginTime: new Date().toISOString(),
-        sessionId: `session_${Date.now()}`,
-      },
-      loginTime: new Date().toISOString(),
-    }
-    setUser(sessionData.user)
-    localStorage.setItem("userSession", JSON.stringify(sessionData))
-  }
-
-  const switchRole = (role: UserRole) => {
-    const newUser = mockUsers[role]
-    const sessionData = {
-      user: {
-        ...newUser,
-        loginTime: new Date().toISOString(),
-        sessionId: `session_${Date.now()}`,
-      },
-      loginTime: new Date().toISOString(),
-    }
-    setUser(sessionData.user)
-    localStorage.setItem("userSession", JSON.stringify(sessionData))
+    setUser(newUser)
   }
 
   return (
-    <UserContext.Provider value={{ user, setUser, logout, login, switchRole, isLoading }}>
+    <UserContext.Provider value={{ user, setUser, logout, login, isLoading }}>
       {children}
     </UserContext.Provider>
   )

@@ -48,9 +48,11 @@ export default function OperationsPage() {
 
   // Status options for dropdown
   const statusOptions = [
+    "On Time",
     "Delayed", 
     "Boarding",
-    "Landed"
+    "Landed",
+    "Cancelled",
   ]
 
   // Get status badge color
@@ -72,14 +74,12 @@ export default function OperationsPage() {
     })
   }
 
-  // Fetch flight instances
+  // Fetch flight instances (default: upcoming/all; date filter is removed to avoid empty results)
   const fetchFlightInstances = async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      const today = new Date().toISOString().split('T')[0]
-      const response = await fetch(`/api/flights/instances?date=${today}`)
+      const response = await fetch(`/api/flights/instances`)
       
       if (!response.ok) {
         throw new Error('Failed to fetch flight instances')
@@ -276,16 +276,21 @@ export default function OperationsPage() {
                           </Badge>
                         </td>
                         <td className="py-4 px-4">
-                          <select
-                            value={instance.status}
-                            onChange={(e) => updateFlightStatus(instance.instance_id, e.target.value)}
-                            disabled={updatingStatus === instance.instance_id}
-                            className="px-3 py-1 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                          >
-                            {statusOptions.map(status => (
-                              <option key={status} value={status}>{status}</option>
-                            ))}
-                          </select>
+                          <div className="inline-flex items-center gap-2 bg-white border border-neutral-300 rounded-md px-2 py-1 focus-within:ring-2 focus-within:ring-blue-500">
+                            <select
+                              value={instance.status}
+                              onChange={(e) => updateFlightStatus(instance.instance_id, e.target.value)}
+                              disabled={updatingStatus === instance.instance_id}
+                              className="text-sm bg-white pr-6 focus:outline-none disabled:opacity-50"
+                            >
+                              {[instance.status, ...statusOptions.filter((s) => s !== instance.status)].map((status) => (
+                                <option key={status} value={status}>{status}</option>
+                              ))}
+                            </select>
+                            {updatingStatus === instance.instance_id && (
+                              <RefreshCw className="w-4 h-4 animate-spin text-neutral-400" />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

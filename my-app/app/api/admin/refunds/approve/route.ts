@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // POST /api/admin/refunds/approve - Approve or Reject a refund
 export async function POST(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["admin"])
+    if (guard) return guard
+
     const body = await request.json()
     const { refundId, action } = body // action: 'approve' or 'reject'
 

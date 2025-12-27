@@ -102,7 +102,7 @@ export default function SignupPage() {
         id: data.user_id,
         email: data.email,
         name: data.full_name,
-        role: "customer",
+        role: data.role || "customer",
         avatar: data.avatar_url,
       })
 

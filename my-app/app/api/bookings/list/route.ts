@@ -1,17 +1,16 @@
 import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { getSessionFromRequest } from "@/lib/auth"
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get("userId")
-
-  if (!userId) {
-    return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+  const session = await getSessionFromRequest(request)
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const bookings = await prisma.booking.findMany({
-      where: { user_id: userId },
+      where: { user_id: session.userId },
       include: {
         passenger: {
           include: {

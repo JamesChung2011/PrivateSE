@@ -1,17 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, Users, ArrowRight } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { MapPin, Users } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export interface FlightSearchParams {
   from: string
   to: string
-  departDate: string
-  returnDate?: string
+  departDate: Date
+  returnDate?: Date
   passengers: number
-  tripType: "oneway" | "roundtrip"
+  tripType: "one-way" | "round-trip"
 }
 
 interface FlightSearchFormProps {
@@ -19,149 +21,136 @@ interface FlightSearchFormProps {
 }
 
 export function FlightSearchForm({ onSearch }: FlightSearchFormProps) {
-  const [tripType, setTripType] = useState<"oneway" | "roundtrip">("roundtrip")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
-  const [departDate, setDepartDate] = useState("")
-  const [returnDate, setReturnDate] = useState("")
-  const [passengers, setPassengers] = useState("1")
+  // Store date as string YYYY-MM-DD for native input
+  const [departDate, setDepartDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [returnDate, setReturnDate] = useState<string>("")
+  const [passengers, setPassengers] = useState(1)
+  const [tripType, setTripType] = useState<"one-way" | "round-trip">("one-way")
 
-  const handleSearch = () => {
-    if (!from || !to || !departDate) {
-      alert("Please fill in all required fields")
-      return
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!from || !to || !departDate) return
 
     onSearch({
       from,
       to,
-      departDate,
-      returnDate: tripType === "roundtrip" ? returnDate : undefined,
-      passengers: Number.parseInt(passengers),
-      tripType,
+      departDate: new Date(departDate),
+      returnDate: tripType === "round-trip" && returnDate ? new Date(returnDate) : undefined,
+      passengers,
+      tripType
     })
   }
 
   return (
-    <Card className="p-8 border border-border bg-gradient-to-br from-neutral-50 to-white">
-      {/* Trip Type Selection */}
-      <div className="flex gap-6 mb-8">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="radio"
-            name="tripType"
-            value="roundtrip"
-            checked={tripType === "roundtrip"}
-            onChange={(e) => setTripType(e.target.value as "oneway" | "roundtrip")}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium text-neutral-700">Round Trip</span>
-        </label>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="radio"
-            name="tripType"
-            value="oneway"
-            checked={tripType === "oneway"}
-            onChange={(e) => setTripType(e.target.value as "oneway" | "roundtrip")}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium text-neutral-700">One Way</span>
-        </label>
-      </div>
-
-      {/* Search Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        {/* From */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">From</label>
-          <div className="flex items-center gap-2 p-3 border border-border rounded-lg bg-white hover:border-primary/50 transition-colors">
-            <MapPin className="w-4 h-4 text-primary" />
-            <input
-              type="text"
-              placeholder="Departure city"
-              value={from}
-              onChange={(e) => setFrom(e.target.value.toUpperCase())}
-              maxLength="3"
-              className="flex-1 border-0 p-0 text-neutral-700 placeholder-neutral-400 bg-transparent font-medium outline-none"
-            />
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-border">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Trip Type Selection */}
+        <RadioGroup 
+          defaultValue="one-way" 
+          value={tripType} 
+          onValueChange={(val: string) => setTripType(val as "one-way" | "round-trip")}
+          className="flex gap-6"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="one-way" id="one-way" />
+            <Label htmlFor="one-way" className="cursor-pointer">One-way</Label>
           </div>
-        </div>
-
-        {/* To */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">To</label>
-          <div className="flex items-center gap-2 p-3 border border-border rounded-lg bg-white hover:border-primary/50 transition-colors">
-            <MapPin className="w-4 h-4 text-primary" />
-            <input
-              type="text"
-              placeholder="Arrival city"
-              value={to}
-              onChange={(e) => setTo(e.target.value.toUpperCase())}
-              maxLength="3"
-              className="flex-1 border-0 p-0 text-neutral-700 placeholder-neutral-400 bg-transparent font-medium outline-none"
-            />
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="round-trip" id="round-trip" />
+            <Label htmlFor="round-trip" className="cursor-pointer">Round-trip</Label>
           </div>
-        </div>
+        </RadioGroup>
 
-        {/* Depart Date */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">Depart</label>
-          <div className="flex items-center gap-2 p-3 border border-border rounded-lg bg-white hover:border-primary/50 transition-colors">
-            <Calendar className="w-4 h-4 text-primary" />
-            <input
-              type="date"
-              value={departDate}
-              onChange={(e) => setDepartDate(e.target.value)}
-              className="flex-1 border-0 p-0 text-neutral-700 bg-transparent outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Return Date */}
-        {tripType === "roundtrip" && (
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">Return</label>
-            <div className="flex items-center gap-2 p-3 border border-border rounded-lg bg-white hover:border-primary/50 transition-colors">
-              <Calendar className="w-4 h-4 text-primary" />
-              <input
-                type="date"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
-                className="flex-1 border-0 p-0 text-neutral-700 bg-transparent outline-none"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* From */}
+          <div className="space-y-2">
+            <Label htmlFor="from">From</Label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
+              <Input
+                id="from"
+                placeholder="Origin City (e.g. NYC)"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="pl-9 border-border"
+                required
               />
             </div>
           </div>
-        )}
 
-        {/* Passengers */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">Passengers</label>
-          <div className="flex items-center gap-2 p-3 border border-border rounded-lg bg-white hover:border-primary/50 transition-colors">
-            <Users className="w-4 h-4 text-primary" />
-            <select
-              value={passengers}
-              onChange={(e) => setPassengers(e.target.value)}
-              className="flex-1 border-0 p-0 text-neutral-700 bg-transparent outline-none"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <option key={num} value={num}>
-                  {num} {num === 1 ? "Passenger" : "Passengers"}
-                </option>
-              ))}
-            </select>
+          {/* To */}
+          <div className="space-y-2">
+            <Label htmlFor="to">To</Label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
+              <Input
+                id="to"
+                placeholder="Destination (e.g. LAX)"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="pl-9 border-border"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Dates - Using Native HTML Input for reliability */}
+          <div className={`space-y-2 ${tripType === "round-trip" ? "col-span-1" : "lg:col-span-1"}`}>
+            <Label htmlFor="departDate">Departure</Label>
+            <Input 
+              type="date"
+              id="departDate"
+              value={departDate}
+              onChange={(e) => setDepartDate(e.target.value)}
+              className="border-border"
+              required
+            />
+          </div>
+
+          {tripType === "round-trip" && (
+            <div className="space-y-2 col-span-1">
+              <Label htmlFor="returnDate">Return</Label>
+              <Input 
+                type="date"
+                id="returnDate"
+                value={returnDate}
+                min={departDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                className="border-border"
+                required
+              />
+            </div>
+          )}
+
+          {/* Passengers & Search Button */}
+          <div className={`space-y-2 ${tripType === "round-trip" ? "lg:col-span-4 flex items-end justify-between gap-4" : "lg:col-span-1"}`}>
+             <div className={tripType === "round-trip" ? "w-1/4" : "w-full"}>
+                <Label htmlFor="passengers">Passengers</Label>
+                <div className="relative mt-2">
+                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
+                  <Input
+                    id="passengers"
+                    type="number"
+                    min={1}
+                    max={9}
+                    value={passengers}
+                    onChange={(e) => setPassengers(Number.parseInt(e.target.value))}
+                    className="pl-9 border-border"
+                  />
+                </div>
+             </div>
+
+             <Button 
+                type="submit" 
+                className={`bg-primary hover:bg-primary-dark text-white ${tripType === "round-trip" ? "w-3/4" : "w-full mt-8"}`}
+              >
+               Search Flights
+             </Button>
           </div>
         </div>
-      </div>
-
-      {/* Search Button */}
-      <Button
-        onClick={handleSearch}
-        className="w-full bg-primary hover:bg-primary-dark text-white h-12 text-base font-semibold gap-2"
-      >
-        <ArrowRight className="w-5 h-5" />
-        Search Flights
-      </Button>
-    </Card>
+      </form>
+    </div>
   )
 }

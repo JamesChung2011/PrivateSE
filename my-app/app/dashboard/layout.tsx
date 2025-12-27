@@ -3,7 +3,9 @@
 import type React from "react"
 import { Navbar } from "@/components/navbar"
 import { Sidebar } from "@/components/sidebar"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useUser } from "@/lib/user-context"
 
 export default function DashboardLayout({
   children,
@@ -11,6 +13,18 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+   const { user, isLoading } = useUser()
+   const router = useRouter()
+
+   useEffect(() => {
+     if (!isLoading && !user) {
+       router.push("/auth/login")
+     }
+   }, [isLoading, user, router])
+
+   if (isLoading || !user) {
+     return null
+   }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">

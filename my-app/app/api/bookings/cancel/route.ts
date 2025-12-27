@@ -1,8 +1,14 @@
 import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { getSessionFromRequest } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
     const { bookingId } = body
 
@@ -18,6 +24,10 @@ export async function POST(request: Request) {
 
     if (!booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    }
+
+    if (booking.user_id !== session.userId && session.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     if (booking.status === "Cancelled") {
@@ -40,7 +50,7 @@ export async function POST(request: Request) {
             payment_id: payment.payment_id,
             amount: payment.amount,
             reason: "Customer requested cancellation",
-            status: "Processing"
+            status: "Pending"
           }
         })
       }

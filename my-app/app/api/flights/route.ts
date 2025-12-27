@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // GET /api/flights - Get all flights
 export async function GET(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin", "staff"])
+    if (guard) return guard
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
 
@@ -45,6 +50,10 @@ export async function GET(request: Request) {
 // POST /api/flights - Create new flight
 export async function POST(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin"])
+    if (guard) return guard
+
     const body = await request.json()
     const { flight_number, route_id, carrier, status } = body
 

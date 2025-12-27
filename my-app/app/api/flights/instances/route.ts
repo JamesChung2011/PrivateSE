@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 // GET /api/flights/instances - Get all flight instances
 export async function GET(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin", "staff"])
+    if (guard) return guard
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const date = searchParams.get("date")

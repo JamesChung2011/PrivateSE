@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 // GET /api/admin/refunds - Get all pending refunds
 export async function GET(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["admin"])
+    if (guard) return guard
+
     const refunds = await prisma.refund.findMany({
       where: {
-        status: "Pending" // Only fetch pending refunds
+        status: {
+          in: ["Pending", "Processing"], // Surface new requests created by cancellations
+        },
       },
       include: {
         payment: {

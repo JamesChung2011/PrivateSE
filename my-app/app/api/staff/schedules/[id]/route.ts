@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // GET /api/staff/schedules/[id] - Get single schedule
 export async function GET(
@@ -7,6 +8,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["staff", "owner", "admin"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const scheduleId = resolvedParams.id
 
@@ -51,6 +56,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["staff", "owner", "admin"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const scheduleId = resolvedParams.id
     const body = await request.json()
@@ -136,6 +145,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["staff", "owner", "admin"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const scheduleId = resolvedParams.id
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // GET /api/flights/[id] - Get single flight by ID
 export async function GET(
@@ -7,6 +8,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin", "staff"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const flightId = parseInt(resolvedParams.id)
 
@@ -62,6 +67,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const flightId = parseInt(resolvedParams.id)
 
@@ -155,6 +164,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["owner", "admin"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const flightId = parseInt(resolvedParams.id)
 

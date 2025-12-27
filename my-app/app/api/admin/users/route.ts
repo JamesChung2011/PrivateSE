@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 // GET /api/admin/users - Get all users with their roles
 export async function GET(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["admin"])
+    if (guard) return guard
+
     const { searchParams } = new URL(request.url)
     const role = searchParams.get("role")
     const search = searchParams.get("search")

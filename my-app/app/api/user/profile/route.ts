@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest } from "@/lib/auth"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 // GET /api/user/profile - Get current user profile
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
-      )
+    const session = await getSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const user = await prisma.app_user.findUnique({
-      where: { user_id: userId },
+      where: { user_id: session.userId },
       select: {
         user_id: true,
         email: true,
@@ -24,17 +23,14 @@ export async function GET(request: Request) {
         avatar_url: true,
         role: {
           select: {
-            name: true
-          }
-        }
-      }
+            name: true,
+          },
+        },
+      },
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     return NextResponse.json(user)
@@ -50,35 +46,21 @@ export async function GET(request: Request) {
 // PUT /api/user/profile - Update user profile
 export async function PUT(request: Request) {
   try {
+    const session = await getSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
-    const { userId, full_name, phone, avatar_url } = body
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
-      )
-    }
-
-    // Check if user exists
-    const existingUser = await prisma.app_user.findUnique({
-      where: { user_id: userId }
-    })
-
-    if (!existingUser) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      )
-    }
+    const { full_name, phone, avatar_url } = body
 
     // Update user
     const updatedUser = await prisma.app_user.update({
-      where: { user_id: userId },
+      where: { user_id: session.userId },
       data: {
         full_name,
         phone,
-        avatar_url
+        avatar_url,
       },
       select: {
         user_id: true,
@@ -88,10 +70,10 @@ export async function PUT(request: Request) {
         avatar_url: true,
         role: {
           select: {
-            name: true
-          }
-        }
-      }
+            name: true,
+          },
+        },
+      },
     })
 
     return NextResponse.json(updatedUser)

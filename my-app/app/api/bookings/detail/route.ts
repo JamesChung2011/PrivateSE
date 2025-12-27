@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { getSessionFromRequest } from "@/lib/auth"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -10,6 +11,9 @@ export async function GET(request: Request) {
   }
 
   try {
+    const session = await getSessionFromRequest(request)
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
     const booking = await prisma.booking.findUnique({
       where: { booking_id: id },
       include: {
@@ -33,6 +37,9 @@ export async function GET(request: Request) {
     })
 
     if (!booking) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (booking.user_id !== session.userId && session.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
     return NextResponse.json(booking)
   } catch (error) {
     console.error("Detail error", error)

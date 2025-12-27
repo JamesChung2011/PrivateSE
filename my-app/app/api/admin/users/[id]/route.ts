@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionFromRequest, requireRole } from "@/lib/auth"
 
 // PATCH /api/admin/users/[id] - Update user status
 export async function PATCH(
@@ -7,6 +8,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionFromRequest(request)
+    const guard = requireRole(session, ["admin"])
+    if (guard) return guard
+
     const resolvedParams = await params
     const userId = resolvedParams.id
     const body = await request.json()
